@@ -45,6 +45,7 @@ end
 function SMODS.Joker:register()
     if not SMODS.Jokers[self.slug] then
         SMODS.Jokers[self.slug] = self
+        SMODS.BUFFERS.Jokers[#SMODS.BUFFERS.Jokers+1] = self.slug
     end
 end
 
@@ -52,10 +53,10 @@ function SMODS.injectJokers()
     local minId = table_length(G.P_CENTER_POOLS['Joker']) + 1
     local id = 0
     local i = 0
-
-    for k, joker in pairs(SMODS.Jokers) do
+    local joker = nil
+    for k, slug in ipairs(SMODS.BUFFERS.Jokers) do
+        joker = SMODS.Jokers[slug]
         i = i + 1
-        -- Prepare some Datas
         id = i + minId
 
         local joker_obj = {
@@ -90,47 +91,22 @@ function SMODS.injectJokers()
         table.insert(G.P_JOKER_RARITY_POOLS[joker_obj.rarity], joker_obj)
 
         -- Setup Localize text
-        G.localization.descriptions["Joker"][k] = joker.loc_txt
-
-        -- Load it
-        for g_k, group in pairs(G.localization) do
-            if g_k == 'descriptions' then
-                for _, set in pairs(group) do
-                    for _, center in pairs(set) do
-                        center.text_parsed = {}
-                        for _, line in ipairs(center.text) do
-                            center.text_parsed[#center.text_parsed + 1] = loc_parse_string(line)
-                        end
-                        center.name_parsed = {}
-                        for _, line in ipairs(type(center.name) == 'table' and center.name or { center.name }) do
-                            center.name_parsed[#center.name_parsed + 1] = loc_parse_string(line)
-                        end
-                        if center.unlock then
-                            center.unlock_parsed = {}
-                            for _, line in ipairs(center.unlock) do
-                                center.unlock_parsed[#center.unlock_parsed + 1] = loc_parse_string(line)
-                            end
-                        end
-                    end
-                end
-            end
-        end
+        G.localization.descriptions["Joker"][slug] = joker.loc_txt
 
         sendDebugMessage("The Joker named " .. joker.name .. " with the slug " .. joker.slug ..
             " have been registered at the id " .. id .. ".")
     end
-    SMODS.SAVE_UNLOCKS()
+    SMODS.BUFFERS.Jokers = {}
 end
 
-local carfset_abilityRef = Card.set_ability
+local cardset_abilityRef = Card.set_ability
 function Card.set_ability(self, center, initial, delay_sprites)
-    carfset_abilityRef(self, center, initial, delay_sprites)
+    cardset_abilityRef(self, center, initial, delay_sprites)
 
     -- Iterate over each object in SMODS.JKR_EFFECT
     for _k, obj in pairs(SMODS.Jokers) do
         --! CHANGED from effect due to overlap
-        -- Check if the object's name matches self.ability.name and if it has an ability function
-        if obj.name == self.ability.name and type(obj.set_ability) == "function" then
+        if obj.set_ability and type(obj.set_ability) == "function" and _k == self.config.center.key then
             obj.set_ability(self, center, initial, delay_sprites)
         end
     end
@@ -142,8 +118,7 @@ function Card:calculate_joker(context)
 
     if self.ability.set == "Joker" and not self.debuff then
         for _k, obj in pairs(SMODS.Jokers) do
-            -- Check if the object's name matches self.ability.name and if it has a calculate function
-            if obj.name == self.ability.name and type(obj.calculate) == "function" then
+            if obj.calculate and type(obj.calculate) == "function" and _k == self.config.center.key then
                 local o = obj.calculate(self, context)
                 if o then return o end
             end
@@ -171,9 +146,12 @@ function Card:generate_UIBox_ability_table()
     elseif self.debuff then
     elseif card_type == 'Default' or card_type == 'Enhanced' then
     elseif self.ability.set == 'Joker' then
-        for _, v in pairs(SMODS.Jokers) do
-            if v.loc_def and type(v.loc_def) == 'function' then
-                loc_vars = v:loc_def(self) or loc_vars
+        sendDebugMessage(inspect(self.config.center))
+        for k, v in pairs(SMODS.Jokers) do
+            if v.loc_def and type(v.loc_def) == 'function' and k == self.config.center.key then
+                local o, m = v.loc_def(self)
+                if o and next(o) then loc_vars = o end
+                if m and next(m) then main_end = m end
             end
         end
     end
@@ -213,7 +191,7 @@ function Card:generate_UIBox_ability_table()
     return ability_table_ref(self)
 end
 --[[
-    function SMODS.Joker.j_example:loc_def(card)
+    function SMODS.Jokers.j_example.loc_def(card)
         if card.ability.name == 'Example Joker' then
             return {card.ability.extra.mult}
         end

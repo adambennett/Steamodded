@@ -31,6 +31,8 @@ function SMODS.Voucher:new(name, slug, config, pos, loc_txt, cost, unlocked, dis
     o.available = available or true
 	o.requires = requires
     o.atlas = atlas
+    o.mod_name = SMODS._MOD_NAME
+    o.badge_colour = SMODS._BADGE_COLOUR
 	return o
 end
 
@@ -63,6 +65,8 @@ function SMODS.injectVouchers()
             cost = voucher.cost,
             atlas = voucher.atlas,
             requires = voucher.requires,
+            mod_name = voucher.mod_name,
+            badge_colour = voucher.badge_colour
         }
 
         for _i, sprite in ipairs(SMODS.Sprites) do
@@ -83,7 +87,6 @@ function SMODS.injectVouchers()
         sendDebugMessage("The Voucher named " .. voucher.name .. " with the slug " .. voucher.slug ..
             " have been registered at the id " .. id .. ".")
     end
-    SMODS.BUFFERS.Vouchers = {}
 end
 
 local Card_apply_to_run_ref = Card.apply_to_run
@@ -92,10 +95,10 @@ function Card:apply_to_run(center)
         name = center and center.name or self and self.ability.name,
         extra = center and center.config.extra or self and self.ability.extra
     }
-    for _k, v in pairs(SMODS.Vouchers) do
-        if v.redeem and type(v.redeem) == 'function' and self.config.center.key == _k then
-            v.redeem(center_table)
-        end
+    local key = center and center.key or self and self.config.center.key
+    local voucher_obj = SMODS.Vouchers[key]
+    if voucher_obj and voucher_obj.redeem and type(voucher_obj.redeem) == 'function' then
+        voucher_obj.redeem(center_table)
     end
     Card_apply_to_run_ref(self, center)
 end

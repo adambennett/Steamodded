@@ -70,10 +70,9 @@ end
 local back_initref = Back.init;
 function Back:init(selected_back)
 	back_initref(self, selected_back)
-    if not selected_back then selected_back = G.P_CENTERS.b_red end
 	self.atlas = "centers"
-    if selected_back.config.atlas then
-        self.atlas = selected_back.config.atlas
+    if self.effect.center.config.atlas then
+        self.atlas = self.effect.center.config.atlas
     end
 end
 
